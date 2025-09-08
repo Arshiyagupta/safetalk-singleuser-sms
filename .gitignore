@@ -1,0 +1,65 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables (KEEP API KEYS SECURE)
+.env
+backend/.env
+mobile/.env
+
+# Build outputs
+dist/
+build/
+*.tgz
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Runtime data
+*.pid
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Cache directories
+.cache/
+.parcel-cache/
+.npm/
+.eslintcache
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# React Native
+mobile/metro.config.js.bak
+mobile/.expo/
+mobile/web-build/
+
+# iOS
+mobile/ios/build/
+mobile/ios/Pods/
+mobile/ios/*.xcworkspace/xcuserdata/
+
+# Android
+mobile/android/app/build/
+mobile/android/build/
+mobile/android/.gradle/
+
+# Temporary files
+tmp/
+temp/
