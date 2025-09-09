@@ -153,14 +153,16 @@ class TwilioService {
     filteredMessage: string, 
     responseOptions: [string, string, string],
     userName?: string,
-    exPartnerName?: string
+    exPartnerName?: string,
+    context?: string | null
   ): Promise<string | null> {
     const smsText = this.formatFilteredMessageForSMS(
       originalMessage, 
       filteredMessage, 
       responseOptions, 
       userName, 
-      exPartnerName
+      exPartnerName,
+      context
     );
     return this.sendSMS(userPhone, smsText);
   }
@@ -193,18 +195,26 @@ class TwilioService {
     filteredMessage: string, 
     responseOptions: [string, string, string],
     userName?: string,
-    exPartnerName?: string
+    exPartnerName?: string,
+    context?: string | null
   ): string {
     // Create personalized greeting
     const greeting = userName ? `Hey ${userName}` : 'Hi';
     const sender = exPartnerName || 'your co-parent';
     
-    // Create a brief summary of what the ex is requesting/saying
-    const messageSummary = this.createMessageSummary(filteredMessage);
+    // Create contextual message with WHY they're requesting this
+    let contextualMessage: string;
+    if (context) {
+      const messageSummary = this.createMessageSummary(filteredMessage);
+      contextualMessage = `${sender} ${messageSummary} because ${context}.`;
+    } else {
+      const messageSummary = this.createMessageSummary(filteredMessage);
+      contextualMessage = `${sender} ${messageSummary}.`;
+    }
     
     return `${greeting},
 
-${sender} ${messageSummary}.
+${contextualMessage}
 
 Would you like to send any of these responses?
 

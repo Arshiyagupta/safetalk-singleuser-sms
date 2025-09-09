@@ -27,21 +27,25 @@ class AIService {
         return this.getMockResponse(originalMessage);
       }
 
-      // Step 1: Filter the message
+      // Step 1: Analyze context (WHY they're making this request)
+      const context = await this.analyzeMessageContext(originalMessage);
+
+      // Step 2: Filter the message
       const filteredMessage = await this.filterMessage(originalMessage);
       
-      // Step 2: Classify message type
+      // Step 3: Classify message type
       const messageType = await this.classifyMessage(filteredMessage);
       
-      // Step 3: Generate response options using enhanced analysis
+      // Step 4: Generate response options using enhanced analysis
       const responseOptions = await this.generateResponseOptions(filteredMessage, messageType);
 
       return {
         filteredMessage,
         messageType,
         responseOptions,
-        confidence: 0.85, // Mock confidence score
-        reasoning: `Processed message of type: ${messageType}`
+        confidence: 0.85,
+        reasoning: `Processed message of type: ${messageType}`,
+        context: context // Add context to the result
       };
 
     } catch (error) {
@@ -99,6 +103,73 @@ Filtered message (keep brief and professional):`;
       logger.error('Error filtering message:', error);
       return this.basicFilter(message);
     }
+  }
+
+  private async analyzeMessageContext(message: string): Promise<string | null> {
+    const prompt = `
+Analyze this co-parenting message to identify WHY the person is making this request. Look for context clues that explain their reasoning.
+
+Common contexts to detect:
+- Work obligations ("meeting", "work late", "business trip")
+- Travel ("flight", "trip", "vacation", "travel") 
+- Medical/Health ("doctor", "appointment", "sick", "hospital", "emergency")
+- Family events ("birthday", "graduation", "funeral", "family")
+- School activities ("school event", "game", "recital", "conference")
+- Scheduling conflicts ("other plans", "conflict", "double booked")
+- Emergencies ("emergency", "urgent", "crisis")
+- Transportation issues ("car trouble", "no ride")
+
+If you detect context, respond with a brief explanation (under 10 words):
+- "he has a work meeting"  
+- "there's a family emergency"
+- "she has a doctor appointment"
+- "he's traveling for work"
+- "there's a school event"
+
+If no clear context is found, respond with: "NO_CONTEXT"
+
+Message: "${message}"
+
+Context:`;
+
+    try {
+      const response = await this.openai!.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 50,
+        temperature: 0.1, // Low temperature for consistent detection
+      });
+
+      const context = response.choices[0]?.message?.content?.trim();
+      
+      if (!context || context === 'NO_CONTEXT') {
+        return null;
+      }
+
+      return context;
+    } catch (error) {
+      logger.error('Error analyzing message context:', error);
+      return this.basicContextDetection(message);
+    }
+  }
+
+  private basicContextDetection(message: string): string | null {
+    const lowerMessage = message.toLowerCase();
+    
+    // Basic pattern matching for context
+    if (lowerMessage.includes('work') || lowerMessage.includes('meeting') || lowerMessage.includes('job')) {
+      return 'he has work obligations';
+    } else if (lowerMessage.includes('doctor') || lowerMessage.includes('appointment') || lowerMessage.includes('sick')) {
+      return 'there\'s a medical appointment';
+    } else if (lowerMessage.includes('flight') || lowerMessage.includes('trip') || lowerMessage.includes('travel')) {
+      return 'he\'s traveling';
+    } else if (lowerMessage.includes('emergency') || lowerMessage.includes('urgent') || lowerMessage.includes('hospital')) {
+      return 'there\'s an emergency';
+    } else if (lowerMessage.includes('school') || lowerMessage.includes('event') || lowerMessage.includes('game')) {
+      return 'there\'s a school event';
+    }
+    
+    return null;
   }
 
   private async classifyMessage(message: string): Promise<'informational' | 'decision_making'> {

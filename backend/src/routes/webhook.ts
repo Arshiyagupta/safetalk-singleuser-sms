@@ -251,7 +251,8 @@ async function handleExPartnerMessage(user: any, fromPhone: string, messageBody:
       aiResult.filteredMessage,
       aiResult.responseOptions,
       user.userName,
-      user.exPartnerName
+      user.exPartnerName,
+      aiResult.context
     );
     
     // Save response options for later use

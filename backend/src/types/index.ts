@@ -40,6 +40,7 @@ export interface AIProcessingResult {
   responseOptions: [string, string, string];
   confidence: number;
   reasoning?: string;
+  context?: string | null;
 }
 
 export interface TwilioWebhookPayload {
