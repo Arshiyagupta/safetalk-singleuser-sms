@@ -344,6 +344,101 @@ Generate exactly 3 DIFFERENT solution strategies (keep each under 20 words):
     };
   }
 
+  // Filter user's custom responses to ensure they're professional and appropriate
+  async filterUserResponse(userResponse: string): Promise<{filteredResponse: string, isAppropriate: boolean}> {
+    try {
+      if (!this.openai) {
+        return {
+          filteredResponse: this.basicFilterUserResponse(userResponse),
+          isAppropriate: true
+        };
+      }
+
+      const prompt = `
+You are filtering a co-parent's response to ensure it's professional and appropriate for their ex-partner.
+
+Your job is to:
+1. Remove ALL profanity, insults, personal attacks, and hostile language
+2. Remove emotional manipulation, guilt trips, or inflammatory content
+3. Convert aggressive language to neutral, business-like communication
+4. Keep the core message if it's child-related and constructive
+5. Apply BIFF method: Brief, Informative, Friendly, Firm
+6. Focus ONLY on children's needs, schedules, or logistics
+
+If the message is too hostile or inappropriate to salvage:
+- Return "MESSAGE_TOO_HOSTILE" 
+- This will prompt the user to select from pre-generated options instead
+
+Rules:
+- Remove: "you always/never", blame, accusations, relationship complaints
+- Convert: emotional outbursts → factual statements
+- Keep: child-related concerns, schedule requests, legitimate logistics
+- Maximum 25 words in filtered response
+
+User's response: "${userResponse}"
+
+Filtered response (or MESSAGE_TOO_HOSTILE):`;
+
+      const response = await this.openai.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: 100,
+        temperature: 0.2, // Low temperature for consistent filtering
+      });
+
+      const filtered = response.choices[0]?.message?.content?.trim() || '';
+      
+      if (filtered === 'MESSAGE_TOO_HOSTILE') {
+        return {
+          filteredResponse: '',
+          isAppropriate: false
+        };
+      }
+
+      return {
+        filteredResponse: filtered || this.basicFilterUserResponse(userResponse),
+        isAppropriate: true
+      };
+
+    } catch (error) {
+      logger.error('Error filtering user response:', error);
+      return {
+        filteredResponse: this.basicFilterUserResponse(userResponse),
+        isAppropriate: true
+      };
+    }
+  }
+
+  // Basic fallback filtering without AI
+  basicFilterUserResponse(response: string): string {
+    let filtered = response;
+    
+    // Remove common profanity and hostile words
+    const hostileWords = [
+      'stupid', 'idiot', 'hate', 'terrible', 'awful', 'worst', 'useless',
+      'damn', 'hell', 'crazy', 'ridiculous', 'pathetic', 'loser', 'jerk'
+    ];
+    
+    hostileWords.forEach(word => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      filtered = filtered.replace(regex, '[removed]');
+    });
+
+    // Remove excessive punctuation and caps
+    filtered = filtered.replace(/[!]{2,}/g, '.');
+    filtered = filtered.replace(/[?]{2,}/g, '?');
+    filtered = filtered.replace(/[A-Z]{3,}/g, (match) => 
+      match.charAt(0) + match.slice(1).toLowerCase()
+    );
+
+    // Limit length
+    if (filtered.length > 150) {
+      filtered = filtered.substring(0, 147) + '...';
+    }
+
+    return filtered.trim() || "I'd like to discuss this matter regarding our child.";
+  }
+
   // Test AI service connectivity
   async testConnection(): Promise<boolean> {
     try {

@@ -131,8 +131,23 @@ async function handleUserResponse(user: any, responseBody: string, messageSid: s
       
       finalResponse = SMSHelpers.getSelectedResponseText(responseOptions, parseResult.selectedOption) || '';
     } else if (parseResult.customResponse) {
-      // User typed custom response - optionally filter it through AI
-      finalResponse = await filterCustomResponse(parseResult.customResponse);
+      // User typed custom response - filter it through AI for appropriateness
+      const filterResult = await filterCustomResponse(parseResult.customResponse);
+      
+      if (filterResult.response === '') {
+        // Message was too hostile - ask user to select from pre-generated options
+        await twilioService.sendSMS(user.phoneNumber, 
+          'That message contains inappropriate language. Please select option 1, 2, or 3 from the previous message.'
+        );
+        return;
+      }
+      
+      finalResponse = filterResult.response;
+      
+      // Optionally notify user if their message was filtered
+      if (filterResult.wasFiltered) {
+        logger.info(`Custom response was filtered for user ${user.phoneNumber}`);
+      }
     } else {
       await twilioService.sendInvalidResponseMessage(user.phoneNumber);
       return;
@@ -176,7 +191,9 @@ async function handleExPartnerMessage(user: any, fromPhone: string, messageBody:
       user.phoneNumber,
       messageBody,
       aiResult.filteredMessage,
-      aiResult.responseOptions
+      aiResult.responseOptions,
+      user.userName,
+      user.exPartnerName
     );
     
     // Save response options for later use
@@ -321,14 +338,31 @@ async function getLastResponseOptions(userId: string) {
   }
 }
 
-async function filterCustomResponse(customResponse: string): Promise<string> {
+async function filterCustomResponse(customResponse: string): Promise<{response: string, wasFiltered: boolean}> {
   try {
-    // Optionally filter custom responses through AI to ensure they're appropriate
-    const aiResult = await aiService.processMessage(customResponse);
-    return aiResult.filteredMessage;
+    // Filter custom responses to ensure they're professional and appropriate
+    const result = await aiService.filterUserResponse(customResponse);
+    
+    if (!result.isAppropriate) {
+      // Message was too hostile - return empty to force user to select pre-generated option
+      return {
+        response: '',
+        wasFiltered: true
+      };
+    }
+    
+    return {
+      response: result.filteredResponse,
+      wasFiltered: result.filteredResponse !== customResponse.trim()
+    };
   } catch (error) {
     logger.error('Error filtering custom response:', error);
-    return customResponse; // Return original if filtering fails
+    // Fallback to basic filtering
+    const filtered = aiService.basicFilterUserResponse(customResponse);
+    return {
+      response: filtered,
+      wasFiltered: filtered !== customResponse.trim()
+    };
   }
 }
 

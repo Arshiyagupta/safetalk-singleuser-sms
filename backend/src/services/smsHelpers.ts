@@ -130,7 +130,7 @@ export class SMSHelpers {
 
   // Check if message contains only emojis or special characters (might need special handling)
   static isNonTextMessage(text: string): boolean {
-    const cleanText = text.replace(/[\s\p{Emoji}]/gu, '');
+    const cleanText = text.replace(/[\s\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}]/gu, '');
     return cleanText.length < 3;
   }
 

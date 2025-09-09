@@ -151,9 +151,17 @@ class TwilioService {
     userPhone: string, 
     originalMessage: string, 
     filteredMessage: string, 
-    responseOptions: [string, string, string]
+    responseOptions: [string, string, string],
+    userName?: string,
+    exPartnerName?: string
   ): Promise<string | null> {
-    const smsText = this.formatFilteredMessageForSMS(originalMessage, filteredMessage, responseOptions);
+    const smsText = this.formatFilteredMessageForSMS(
+      originalMessage, 
+      filteredMessage, 
+      responseOptions, 
+      userName, 
+      exPartnerName
+    );
     return this.sendSMS(userPhone, smsText);
   }
 
@@ -167,16 +175,50 @@ class TwilioService {
   formatFilteredMessageForSMS(
     originalMessage: string, 
     filteredMessage: string, 
-    responseOptions: [string, string, string]
+    responseOptions: [string, string, string],
+    userName?: string,
+    exPartnerName?: string
   ): string {
-    return `SafeTalk Message: ${filteredMessage}
+    // Create personalized greeting
+    const greeting = userName ? `Hey ${userName}` : 'Hi';
+    const sender = exPartnerName || 'your co-parent';
+    
+    // Create a brief summary of what the ex is requesting/saying
+    const messageSummary = this.createMessageSummary(filteredMessage);
+    
+    return `${greeting},
 
-Reply:
+${sender} ${messageSummary}.
+
+Would you like to send any of these responses?
+
 1. ${responseOptions[0]}
 2. ${responseOptions[1]}
 3. ${responseOptions[2]}
 
-Or type your own response`;
+Reply with 1, 2, 3, or write your own response.`;
+  }
+
+  private createMessageSummary(filteredMessage: string): string {
+    // Convert filtered message into a conversational summary
+    const message = filteredMessage.toLowerCase().trim();
+    
+    // Common patterns and their conversational equivalents
+    if (message.includes('request') && message.includes('time')) {
+      return 'is requesting a schedule change';
+    } else if (message.includes('pickup') || message.includes('drop')) {
+      return 'has a pickup/drop-off request';
+    } else if (message.includes('school') || message.includes('activity')) {
+      return 'sent information about school/activities';
+    } else if (message.includes('health') || message.includes('medical')) {
+      return 'shared health/medical information';
+    } else if (message.includes('schedule') || message.includes('calendar')) {
+      return 'wants to discuss scheduling';
+    } else if (message.includes('need') || message.includes('want')) {
+      return 'has a request';
+    } else {
+      return 'sent a message';
+    }
   }
 
   async sendWelcomeMessage(userPhone: string): Promise<string | null> {

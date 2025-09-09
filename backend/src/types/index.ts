@@ -3,6 +3,8 @@ export interface User {
   phoneNumber: string;
   twilioNumber: string;
   exPartnerPhone: string; // Fixed: was exNumber, now matches the actual usage
+  userName?: string; // Optional: client's name for personalized greetings
+  exPartnerName?: string; // Optional: ex-partner's name for personalized greetings
   createdAt: string;
   isActive: boolean;
 }
