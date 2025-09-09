@@ -6,34 +6,32 @@ SafeTalk is a single-user mobile app that uses AI to mediate communication betwe
 
 ```
 SafeTalk_App/
-├── backend/          # Node.js + Express + TypeScript API server
-├── mobile/           # React Native cross-platform app
-├── shared/           # Common TypeScript types
+├── backend/          # Node.js SMS webhook service
+├── shared/           # Common TypeScript types  
 └── README.md
 ```
 
 ## Features
 
+- **SMS-Only Service**: No app downloads required, works on any phone
 - **AI Message Filtering**: Removes harmful language, keeps facts
 - **Smart Response Generation**: Provides 3 contextual response options
-- **Twilio SMS Integration**: Seamless message routing
-- **Real-time Updates**: Instant message delivery via Supabase
-- **Cross-Platform**: Single codebase for iOS and Android
+- **Twilio SMS Integration**: Seamless bidirectional SMS routing
+- **Universal Compatibility**: Works on iPhone, Android, and flip phones
+- **Simple Setup**: Text-based onboarding and commands
 
 ## Tech Stack
 
 - **Backend**: Node.js, Express, TypeScript, Supabase
-- **Mobile**: React Native, TypeScript
 - **AI**: OpenAI GPT-4
 - **SMS**: Twilio Programmable SMS
-- **Hosting**: Fly.io (backend), Expo (mobile)
+- **Hosting**: Render.com (free tier recommended)
 
 ## Setup Instructions
 
 ### Prerequisites
 - Node.js 18+
-- React Native CLI or Expo CLI
-- Accounts: Supabase, Twilio, OpenAI, Fly.io
+- Accounts: Supabase, Twilio, OpenAI, Render.com
 
 ### Backend Setup
 ```bash
@@ -44,23 +42,14 @@ cp .env.example .env
 npm run dev
 ```
 
-### Mobile Setup
-```bash
-cd mobile
-npm install
-npx react-native run-ios    # or run-android
-```
+### Deployment to Render.com (Free)
+1. Connect your GitHub repo to Render.com
+2. Create a new Web Service
+3. Set environment variables in Render dashboard
+4. Deploy automatically
+5. Set up UptimeRobot for keep-alive monitoring
 
-### Deployment
-```bash
-# Backend to Fly.io
-cd backend
-flyctl deploy
-
-# Mobile to app stores
-cd mobile
-npx eas build --platform all
-```
+See `SMS_README.md` for detailed SMS-only setup instructions.
 
 ## API Keys Required
 

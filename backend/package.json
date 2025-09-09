@@ -1,7 +1,7 @@
 {
   "name": "safetalk-backend",
   "version": "1.0.0",
-  "description": "SafeTalk co-parenting communication backend API",
+  "description": "SafeTalk SMS-only co-parenting communication service",
   "main": "dist/app.js",
   "scripts": {
     "start": "node dist/app.js",
@@ -11,7 +11,7 @@
     "lint": "eslint src/**/*.ts",
     "type-check": "tsc --noEmit"
   },
-  "keywords": ["co-parenting", "ai", "communication", "twilio", "sms"],
+  "keywords": ["co-parenting", "ai", "sms", "twilio", "communication", "text-messaging"],
   "author": "SafeTalk Team",
   "license": "PRIVATE",
   "dependencies": {

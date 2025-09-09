@@ -1,8 +1,8 @@
 export interface User {
   id: string;
   phoneNumber: string;
+  exPartnerPhone: string;
   twilioNumber: string;
-  exNumber: string;
   createdAt: string;
   isActive: boolean;
 }
@@ -68,26 +68,16 @@ export interface ResponseSelectRequest {
   customResponse?: string;
 }
 
-export interface AuthVerifyRequest {
-  phoneNumber: string;
-  code: string;
+// SMS-specific types
+export interface SMSUserSetupRequest {
+  userPhone: string;
+  exPartnerPhone: string;
+  twilioNumber: string;
 }
 
-export interface ChatColors {
-  outgoingMessage: string;
-  incomingMessage: string;
-  chatBackground: string;
-  inputBackground: string;
-  inputBorder: string;
-  messageText: string;
-  timestampText: string;
-  sendButton: string;
-}
-
-export interface ConversationSummary {
-  userId: string;
-  totalMessages: number;
-  lastMessageAt: string;
-  unreadCount: number;
-  recentMessages: Message[];
+export interface SMSResponseParseResult {
+  isValidResponse: boolean;
+  selectedOption?: number; // 1, 2, or 3
+  customResponse?: string;
+  errorMessage?: string;
 }

@@ -145,6 +145,83 @@ class TwilioService {
       return null;
     }
   }
+
+  // SMS-specific helper methods
+  async sendFilteredMessageToUser(
+    userPhone: string, 
+    originalMessage: string, 
+    filteredMessage: string, 
+    responseOptions: [string, string, string]
+  ): Promise<string | null> {
+    const smsText = this.formatFilteredMessageForSMS(originalMessage, filteredMessage, responseOptions);
+    return this.sendSMS(userPhone, smsText);
+  }
+
+  async sendResponseToExPartner(
+    exPartnerPhone: string, 
+    response: string
+  ): Promise<string | null> {
+    return this.sendSMS(exPartnerPhone, response);
+  }
+
+  formatFilteredMessageForSMS(
+    originalMessage: string, 
+    filteredMessage: string, 
+    responseOptions: [string, string, string]
+  ): string {
+    return `SafeTalk Message: ${filteredMessage}
+
+Reply:
+1. ${responseOptions[0]}
+2. ${responseOptions[1]}
+3. ${responseOptions[2]}
+
+Or type your own response`;
+  }
+
+  async sendWelcomeMessage(userPhone: string): Promise<string | null> {
+    const welcomeText = `Welcome to SafeTalk! 
+
+To get started, reply with your ex-partner's phone number in this format: +1234567890
+
+SafeTalk will filter all messages between you and help you communicate more effectively.`;
+    
+    return this.sendSMS(userPhone, welcomeText);
+  }
+
+  async sendSetupConfirmation(
+    userPhone: string, 
+    exPartnerPhone: string, 
+    twilioNumber: string
+  ): Promise<string | null> {
+    const confirmationText = `SafeTalk Setup Complete! ✓
+
+Your number: ${userPhone}
+Ex-partner's number: ${exPartnerPhone}
+SafeTalk service: ${twilioNumber}
+
+Both of you should now text ${twilioNumber} to communicate through SafeTalk. All messages will be filtered for constructive co-parenting communication.`;
+    
+    return this.sendSMS(userPhone, confirmationText);
+  }
+
+  async sendErrorMessage(userPhone: string, errorMessage: string): Promise<string | null> {
+    const errorText = `SafeTalk Error: ${errorMessage}
+
+Please try again or contact support.`;
+    
+    return this.sendSMS(userPhone, errorText);
+  }
+
+  async sendInvalidResponseMessage(userPhone: string): Promise<string | null> {
+    const errorText = `Invalid response. Please reply with:
+- "1", "2", or "3" to select a response option
+- Or type your own custom response
+
+Your message will be sent after AI processing.`;
+    
+    return this.sendSMS(userPhone, errorText);
+  }
 }
 
 export default new TwilioService();

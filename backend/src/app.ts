@@ -9,8 +9,6 @@ import { createServer } from 'http';
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 import webhookRoutes from './routes/webhook';
-import messageRoutes from './routes/messages';
-import authRoutes from './routes/auth';
 
 // Load environment variables
 dotenv.config();
@@ -33,8 +31,8 @@ app.use(helmet({
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://safetalk-app.com'] // Replace with your actual domain
-    : ['http://localhost:3000', 'http://localhost:19006'], // React Native dev servers
+    ? ['https://safetalk-sms.com'] // Replace with your actual domain
+    : true, // Allow all origins in development
   credentials: true,
 }));
 
@@ -50,17 +48,15 @@ app.use(express.urlencoded({ extended: true }));
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'healthy',
+    service: 'SafeTalk SMS Service',
     timestamp: new Date().toISOString(),
     version: process.env.npm_package_version || '1.0.0',
     environment: process.env.NODE_ENV || 'development'
   });
 });
 
-// API routes
-const apiVersion = process.env.API_VERSION || 'v1';
+// SMS webhook routes (only route we need for SMS-only service)
 app.use('/webhook', webhookRoutes);
-app.use(`/api/${apiVersion}/auth`, authRoutes);
-app.use(`/api/${apiVersion}/messages`, messageRoutes);
 
 // 404 handler
 app.use('*', (_req, res) => {
@@ -93,9 +89,9 @@ process.on('SIGINT', () => {
 
 // Start server
 server.listen(PORT, () => {
-  logger.info(`SafeTalk Backend API running on port ${PORT}`);
+  logger.info(`SafeTalk SMS Service running on port ${PORT}`);
   logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`API Version: ${apiVersion}`);
+  logger.info(`Webhook endpoint: /webhook/sms`);
 });
 
 export default app;
