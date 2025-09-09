@@ -25,7 +25,7 @@ class SupabaseService {
         .insert({
           phone_number: userData.phoneNumber,
           twilio_number: userData.twilioNumber,
-          ex_number: userData.exNumber,
+          ex_number: userData.exPartnerPhone,
           is_active: true
         })
         .select()
@@ -228,7 +228,7 @@ class SupabaseService {
       id: data.id,
       phoneNumber: data.phone_number,
       twilioNumber: data.twilio_number,
-      exNumber: data.ex_number,
+      exPartnerPhone: data.ex_number,
       createdAt: data.created_at,
       isActive: data.is_active
     };

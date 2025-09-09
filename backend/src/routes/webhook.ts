@@ -26,7 +26,7 @@ router.post('/sms', async (req: Request, res: Response) => {
       return res.status(400).send('Invalid payload');
     }
 
-    const { From, To, Body, MessageSid } = payload;
+    const { From, Body, MessageSid } = payload;
     
     // Validate webhook signature in production
     if (process.env.NODE_ENV === 'production') {
@@ -64,10 +64,10 @@ router.post('/sms', async (req: Request, res: Response) => {
       await handleExPartnerMessage(user, From, Body, MessageSid);
     }
 
-    res.status(200).send('OK');
+    return res.status(200).send('OK');
   } catch (error) {
     logger.error('Error processing SMS webhook:', error);
-    res.status(500).send('Internal Server Error');
+    return res.status(500).send('Internal Server Error');
   }
 });
 
@@ -109,7 +109,7 @@ async function handleNewUser(phoneNumber: string, messageBody: string) {
 }
 
 // Handle response from user (replying to filtered message)
-async function handleUserResponse(user: any, responseBody: string, messageSid: string) {
+async function handleUserResponse(user: any, responseBody: string, _messageSid: string) {
   try {
     // Check for special commands first
     const { isCommand, command } = SMSHelpers.parseSpecialCommands(responseBody);
@@ -436,7 +436,7 @@ async function hasPendingIncomingOptions(userId: string): Promise<boolean> {
       .single();
 
     // User has pending options if there are response options that haven't been used yet
-    return responseOptions && !responseOptions.selected_response && !responseOptions.custom_response;
+    return !!(responseOptions && !responseOptions.selected_response && !responseOptions.custom_response);
   } catch (error) {
     logger.error('Error checking pending incoming options:', error);
     return false;
@@ -466,7 +466,7 @@ async function hasPendingOutgoingOptions(userId: string): Promise<boolean> {
       .eq('message_id', recentMessage.id)
       .single();
 
-    return responseOptions && !responseOptions.selected_response && !responseOptions.custom_response;
+    return !!(responseOptions && !responseOptions.selected_response && !responseOptions.custom_response);
   } catch (error) {
     logger.error('Error checking pending outgoing options:', error);
     return false;
@@ -578,7 +578,7 @@ async function saveOutgoingMessageOptions(userId: string, options: [string, stri
 }
 
 // Health check for webhook
-router.get('/health', (req, res) => {
+router.get('/health', (_req, res) => {
   res.json({ 
     status: 'healthy', 
     service: 'sms-webhook',

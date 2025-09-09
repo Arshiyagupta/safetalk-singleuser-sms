@@ -1,5 +1,5 @@
 import { SMSResponseParseResult, ResponseOptions } from '../shared/types';
-import { logger } from '../utils/logger';
+// Removed unused logger import
 import twilioService from './twilioService';
 
 export class SMSHelpers {

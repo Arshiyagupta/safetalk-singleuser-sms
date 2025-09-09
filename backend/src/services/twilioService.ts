@@ -191,7 +191,7 @@ class TwilioService {
   }
 
   formatFilteredMessageForSMS(
-    originalMessage: string, 
+    _originalMessage: string, 
     filteredMessage: string, 
     responseOptions: [string, string, string],
     userName?: string,
@@ -226,7 +226,7 @@ Reply with 1, 2, 3, or write your own response.`;
   }
 
   formatOutgoingMessageOptionsForSMS(
-    originalMessage: string,
+    _originalMessage: string,
     messageOptions: [string, string, string], 
     userName?: string,
     exPartnerName?: string
