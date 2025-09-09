@@ -165,6 +165,22 @@ class TwilioService {
     return this.sendSMS(userPhone, smsText);
   }
 
+  async sendOutgoingMessageOptionsToClient(
+    userPhone: string,
+    originalMessage: string,
+    messageOptions: [string, string, string],
+    userName?: string,
+    exPartnerName?: string
+  ): Promise<string | null> {
+    const smsText = this.formatOutgoingMessageOptionsForSMS(
+      originalMessage,
+      messageOptions,
+      userName,
+      exPartnerName
+    );
+    return this.sendSMS(userPhone, smsText);
+  }
+
   async sendResponseToExPartner(
     exPartnerPhone: string, 
     response: string
@@ -197,6 +213,27 @@ Would you like to send any of these responses?
 3. ${responseOptions[2]}
 
 Reply with 1, 2, 3, or write your own response.`;
+  }
+
+  formatOutgoingMessageOptionsForSMS(
+    originalMessage: string,
+    messageOptions: [string, string, string], 
+    userName?: string,
+    exPartnerName?: string
+  ): string {
+    // Create personalized greeting
+    const greeting = userName ? `Hey ${userName}` : 'Hi';
+    const recipient = exPartnerName || 'your co-parent';
+    
+    return `${greeting},
+
+Here are 3 ways to send your message to ${recipient}:
+
+1. ${messageOptions[0]}
+2. ${messageOptions[1]}
+3. ${messageOptions[2]}
+
+Reply with 1, 2, 3, or write your own version.`;
   }
 
   private createMessageSummary(filteredMessage: string): string {

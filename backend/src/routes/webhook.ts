@@ -49,8 +49,16 @@ router.post('/sms', async (req: Request, res: Response) => {
     }
 
     if (isUserPhone) {
-      // Message from the user - this is a response to a filtered message
-      await handleUserResponse(user, Body, MessageSid);
+      // Message from the user - determine if responding or initiating
+      const hasPendingOptions = await hasPendingResponseOptions(user.id);
+      
+      if (hasPendingOptions) {
+        // User is responding to a previous filtered message
+        await handleUserResponse(user, Body, MessageSid);
+      } else {
+        // User is initiating a new message to their ex
+        await handleClientInitiatedMessage(user, Body, MessageSid);
+      }
     } else {
       // Message from ex-partner - filter and send options to user
       await handleExPartnerMessage(user, From, Body, MessageSid);
@@ -122,14 +130,20 @@ async function handleUserResponse(user: any, responseBody: string, messageSid: s
     let finalResponse: string;
     
     if (parseResult.selectedOption) {
-      // User selected option 1, 2, or 3 - get the stored response
+      // User selected option 1, 2, or 3 - determine if it's incoming response or outgoing message
       const responseOptions = await getLastResponseOptions(user.id);
-      if (!responseOptions) {
+      const outgoingOptions = await getLastOutgoingMessageOptions(user.id);
+      
+      if (outgoingOptions) {
+        // User is selecting from outgoing message options (client initiating message to ex)
+        finalResponse = SMSHelpers.getSelectedResponseText(outgoingOptions, parseResult.selectedOption) || '';
+      } else if (responseOptions) {
+        // User is responding to ex's filtered message (incoming response)
+        finalResponse = SMSHelpers.getSelectedResponseText(responseOptions, parseResult.selectedOption) || '';
+      } else {
         await twilioService.sendErrorMessage(user.phoneNumber, 'No recent message to respond to');
         return;
       }
-      
-      finalResponse = SMSHelpers.getSelectedResponseText(responseOptions, parseResult.selectedOption) || '';
     } else if (parseResult.customResponse) {
       // User typed custom response - filter it through AI for appropriateness
       const filterResult = await filterCustomResponse(parseResult.customResponse);
@@ -167,6 +181,50 @@ async function handleUserResponse(user: any, responseBody: string, messageSid: s
   } catch (error) {
     logger.error('Error handling user response:', error);
     await twilioService.sendErrorMessage(user.phoneNumber, 'Failed to send response. Please try again.');
+  }
+}
+
+// Handle client initiating a new message to their ex
+async function handleClientInitiatedMessage(user: any, messageBody: string, messageSid: string) {
+  try {
+    // Check for special commands first
+    const { isCommand, command } = SMSHelpers.parseSpecialCommands(messageBody);
+    
+    if (isCommand) {
+      await handleSpecialCommand(user, command!);
+      return;
+    }
+
+    // Validate message content
+    const validation = SMSHelpers.validateMessageContent(messageBody);
+    if (!validation.isValid) {
+      await twilioService.sendErrorMessage(user.phoneNumber, `Invalid message: ${validation.error}`);
+      return;
+    }
+
+    // Process client's message through AI to generate 3 professional options
+    const aiResult = await aiService.generateOutgoingMessageOptions(messageBody);
+    
+    // Save the outgoing message intent
+    await saveOutgoingMessageIntent(user.id, messageBody, aiResult, messageSid);
+    
+    // Send 3 professional options to client
+    await twilioService.sendOutgoingMessageOptionsToClient(
+      user.phoneNumber,
+      messageBody,
+      aiResult.messageOptions,
+      user.userName,
+      user.exPartnerName
+    );
+    
+    // Save the outgoing options for later selection
+    await saveOutgoingMessageOptions(user.id, aiResult.messageOptions);
+    
+    logger.info(`Outgoing message options sent to ${user.phoneNumber} for message to ${user.exPartnerPhone}`);
+    
+  } catch (error) {
+    logger.error('Error handling client initiated message:', error);
+    await twilioService.sendErrorMessage(user.phoneNumber, 'Failed to process your message. Please try again.');
   }
 }
 
@@ -338,6 +396,106 @@ async function getLastResponseOptions(userId: string) {
   }
 }
 
+async function hasPendingResponseOptions(userId: string): Promise<boolean> {
+  try {
+    // Check for pending incoming response options
+    const incomingPending = await hasPendingIncomingOptions(userId);
+    if (incomingPending) return true;
+
+    // Check for pending outgoing message options
+    const outgoingPending = await hasPendingOutgoingOptions(userId);
+    return outgoingPending;
+  } catch (error) {
+    logger.error('Error checking pending response options:', error);
+    return false;
+  }
+}
+
+async function hasPendingIncomingOptions(userId: string): Promise<boolean> {
+  try {
+    // Check if there's a recent incoming message with response options that haven't been used
+    const { data: recentMessage } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('direction', 'incoming')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!recentMessage) {
+      return false;
+    }
+
+    // Check if there are unused response options for this message
+    const { data: responseOptions } = await supabase
+      .from('response_options')
+      .select('selected_response, custom_response')
+      .eq('message_id', recentMessage.id)
+      .single();
+
+    // User has pending options if there are response options that haven't been used yet
+    return responseOptions && !responseOptions.selected_response && !responseOptions.custom_response;
+  } catch (error) {
+    logger.error('Error checking pending incoming options:', error);
+    return false;
+  }
+}
+
+async function hasPendingOutgoingOptions(userId: string): Promise<boolean> {
+  try {
+    // Check if there's a recent outgoing intent message with options that haven't been used
+    const { data: recentMessage } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('direction', 'outgoing_intent')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!recentMessage) {
+      return false;
+    }
+
+    // Check if there are unused outgoing options for this message
+    const { data: responseOptions } = await supabase
+      .from('response_options')
+      .select('selected_response, custom_response')
+      .eq('message_id', recentMessage.id)
+      .single();
+
+    return responseOptions && !responseOptions.selected_response && !responseOptions.custom_response;
+  } catch (error) {
+    logger.error('Error checking pending outgoing options:', error);
+    return false;
+  }
+}
+
+async function getLastOutgoingMessageOptions(userId: string) {
+  try {
+    const { data } = await supabase
+      .from('response_options')
+      .select('*')
+      .eq('message_id', supabase
+        .from('messages')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('direction', 'outgoing_intent')
+        .order('created_at', { ascending: false })
+        .limit(1)
+      )
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+      
+    return data;
+  } catch (error) {
+    logger.error('Error getting last outgoing message options:', error);
+    return null;
+  }
+}
+
 async function filterCustomResponse(customResponse: string): Promise<{response: string, wasFiltered: boolean}> {
   try {
     // Filter custom responses to ensure they're professional and appropriate
@@ -363,6 +521,58 @@ async function filterCustomResponse(customResponse: string): Promise<{response: 
       response: filtered,
       wasFiltered: filtered !== customResponse.trim()
     };
+  }
+}
+
+// Database helper functions for outgoing messages
+async function saveOutgoingMessageIntent(userId: string, originalText: string, aiResult: any, twilioSid: string) {
+  try {
+    const { error } = await supabase
+      .from('messages')
+      .insert({
+        user_id: userId,
+        from_number: '', // Will be filled with user's number
+        to_number: '', // Will be filled with ex's number  
+        original_text: originalText,
+        filtered_text: null, // Not filtered yet, user will choose option
+        message_type: aiResult.messageType || 'informational',
+        direction: 'outgoing_intent', // New direction type for initiated messages
+        status: 'pending',
+        twilio_message_id: twilioSid
+      });
+      
+    if (error) throw error;
+  } catch (error) {
+    logger.error('Error saving outgoing message intent:', error);
+  }
+}
+
+async function saveOutgoingMessageOptions(userId: string, options: [string, string, string]) {
+  try {
+    // Get the most recent outgoing intent message for this user
+    const { data: lastMessage } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('direction', 'outgoing_intent')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    if (lastMessage) {
+      const { error } = await supabase
+        .from('response_options')
+        .insert({
+          message_id: lastMessage.id,
+          option1: options[0],
+          option2: options[1],
+          option3: options[2]
+        });
+        
+      if (error) throw error;
+    }
+  } catch (error) {
+    logger.error('Error saving outgoing message options:', error);
   }
 }
 

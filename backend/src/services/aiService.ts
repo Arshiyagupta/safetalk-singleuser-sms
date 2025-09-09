@@ -439,6 +439,133 @@ Filtered response (or MESSAGE_TOO_HOSTILE):`;
     return filtered.trim() || "I'd like to discuss this matter regarding our child.";
   }
 
+  // Generate 3 professional options for client's outgoing message
+  async generateOutgoingMessageOptions(clientMessage: string): Promise<{messageOptions: [string, string, string], messageType: 'informational' | 'decision_making'}> {
+    try {
+      if (!this.openai) {
+        return this.getMockOutgoingOptions(clientMessage);
+      }
+
+      // First classify the message type
+      const messageType = await this.classifyMessage(clientMessage);
+
+      // Generate 3 distinct professional versions
+      const messageOptions = await this.generateProfessionalVersions(clientMessage, messageType);
+
+      return {
+        messageOptions,
+        messageType
+      };
+
+    } catch (error) {
+      logger.error('Error generating outgoing message options:', error);
+      return this.getMockOutgoingOptions(clientMessage);
+    }
+  }
+
+  private async generateProfessionalVersions(message: string, type: 'informational' | 'decision_making'): Promise<[string, string, string]> {
+    const prompt = `
+You are helping a co-parent send professional, effective messages to their ex-partner. Generate 3 DISTINCTLY DIFFERENT professional versions of their message.
+
+Apply research-based co-parenting communication principles:
+- BIFF method: Brief, Informative, Friendly, Firm
+- Child-centered focus
+- Neutral, business-like tone
+- Solution-oriented approach
+
+Generate 3 different strategic approaches:
+
+OPTION 1 - DIRECT APPROACH:
+- Straightforward and clear
+- Gets straight to the point
+- Professional but not overly diplomatic
+
+OPTION 2 - DIPLOMATIC APPROACH:  
+- Collaborative language
+- Emphasizes working together
+- Uses "we" and partnership language
+
+OPTION 3 - CHILD-FOCUSED APPROACH:
+- Centers the children's needs
+- Emphasizes what's best for kids
+- Solution-oriented for family benefit
+
+Rules:
+- Each option must be under 25 words
+- Remove any blame, accusation, or emotional language
+- Keep the core request/information intact
+- Make each approach genuinely different in strategy
+
+Client's original message: "${message}"
+
+Generate exactly 3 different professional versions:
+1.
+2. 
+3.`;
+
+    try {
+      const response = await this.openai!.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        max_tokens: this.maxTokens,
+        temperature: 0.7, // Higher temperature for creative options
+      });
+
+      const content = response.choices[0]?.message?.content?.trim();
+      if (!content) {
+        return this.getDefaultOutgoingOptions(type);
+      }
+
+      // Parse the numbered responses
+      const lines = content.split('\n').filter(line => line.trim());
+      const options: string[] = [];
+
+      for (const line of lines) {
+        const match = line.match(/^\d+\.?\s*(.+)/);
+        if (match && match[1]) {
+          options.push(match[1].trim());
+        }
+      }
+
+      // Ensure we have exactly 3 options
+      while (options.length < 3) {
+        const defaults = this.getDefaultOutgoingOptions(type);
+        options.push(defaults[options.length]);
+      }
+
+      return [options[0], options[1], options[2]];
+    } catch (error) {
+      logger.error('Error generating professional versions:', error);
+      return this.getDefaultOutgoingOptions(type);
+    }
+  }
+
+  private getDefaultOutgoingOptions(type: 'informational' | 'decision_making'): [string, string, string] {
+    if (type === 'informational') {
+      return [
+        "I wanted to update you about our child's schedule.",
+        "I'd like to share some information about our child with you.",
+        "Here's an update that affects our child's routine."
+      ];
+    } else {
+      return [
+        "I need to discuss a scheduling matter with you.",
+        "Could we work together to solve this scheduling issue?", 
+        "I'd like to find a solution that works best for our child."
+      ];
+    }
+  }
+
+  private getMockOutgoingOptions(clientMessage: string): {messageOptions: [string, string, string], messageType: 'informational' | 'decision_making'} {
+    const messageType = this.basicClassification(clientMessage);
+    const messageOptions = this.getDefaultOutgoingOptions(messageType);
+
+    return {
+      messageOptions,
+      messageType
+    };
+  }
+
   // Test AI service connectivity
   async testConnection(): Promise<boolean> {
     try {

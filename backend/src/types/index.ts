@@ -17,7 +17,7 @@ export interface Message {
   originalText: string;
   filteredText?: string;
   messageType: 'informational' | 'decision_making';
-  direction: 'incoming' | 'outgoing';
+  direction: 'incoming' | 'outgoing' | 'outgoing_intent';
   status: 'pending' | 'processing' | 'sent' | 'delivered' | 'failed';
   createdAt: string;
   twilioMessageId?: string;
