@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
-import { AIProcessingResult } from '../shared/types';
+import { AIProcessingResult } from '../types';
 
 class AIService {
   private openai: OpenAI | null = null;
@@ -33,7 +33,7 @@ class AIService {
       // Step 2: Classify message type
       const messageType = await this.classifyMessage(filteredMessage);
       
-      // Step 3: Generate response options
+      // Step 3: Generate response options using enhanced analysis
       const responseOptions = await this.generateResponseOptions(filteredMessage, messageType);
 
       return {
@@ -54,22 +54,31 @@ class AIService {
 
   private async filterMessage(message: string): Promise<string> {
     const prompt = `
-You are a co-parenting communication filter. Your job is to:
-1. Remove all personal attacks, insults, accusations, and emotional language
-2. Keep only factual, child-related information
-3. Convert hostile tone to neutral, professional language
-4. Preserve essential details about children, schedules, or logistics
-5. If the message contains no useful information, return a neutral summary
+You are a professional co-parenting communication filter trained in conflict resolution and handling difficult personalities, including narcissistic behavior patterns.
 
-Rules:
-- Remove "you" statements that are accusatory
-- Convert emotional language to neutral facts
-- Keep dates, times, locations, and child-related details
-- If message is purely hostile with no facts, return "Message regarding co-parenting communication"
+Your job is to:
+1. Remove all personal attacks, insults, accusations, and emotional manipulation
+2. Convert hostile/emotional language to neutral, business-like communication
+3. Preserve ONLY factual, child-related information (schedules, health, activities, logistics)
+4. Apply the BIFF method: Brief, Informative, Friendly, Firm
+5. Focus on children's best interests and well-being
+
+Special handling for high-conflict situations:
+- Remove "you always/never" statements and generalizations
+- Strip out guilt trips, threats, or emotional manipulation
+- Convert demands into neutral information sharing
+- Eliminate blame and focus on solutions
+- If message contains no child-relevant facts, return "Message regarding co-parenting matters"
+
+Rules for filtering:
+- Keep: dates, times, locations, child needs, health info, school matters
+- Remove: personal attacks, relationship complaints, financial disputes not directly affecting children
+- Convert: emotional outbursts → factual statements
+- Neutralize: accusations → observations when relevant to children
 
 Original message: "${message}"
 
-Filtered message:`;
+Filtered message (keep brief and professional):`;
 
     try {
       const response = await this.openai!.chat.completions.create({
@@ -125,36 +134,103 @@ Classification:`;
     }
   }
 
+  private async analyzeConflict(message: string): Promise<{isExAction: boolean, clientCanFix: boolean, conflictType: string}> {
+    const analysisPrompt = `
+Analyze this co-parenting conflict message to determine:
+1. Is the problem primarily caused by the ex-partner's direct actions? (vs external circumstances)
+2. Can the client reasonably influence or fix this issue? (vs outside their control)
+3. What type of conflict is this? (scheduling, communication, responsibility, behavioral, logistical)
+
+Message: "${message}"
+
+Respond in this exact format:
+EX_ACTION: yes/no
+CLIENT_CAN_FIX: yes/no
+CONFLICT_TYPE: [type]`;
+
+    try {
+      const response = await this.openai!.chat.completions.create({
+        model: this.model,
+        messages: [{ role: 'user', content: analysisPrompt }],
+        max_tokens: 100,
+        temperature: 0.1
+      });
+
+      const analysis = response.choices[0]?.message?.content?.trim() || '';
+      const isExAction = analysis.includes('EX_ACTION: yes');
+      const clientCanFix = analysis.includes('CLIENT_CAN_FIX: yes');
+      const conflictMatch = analysis.match(/CONFLICT_TYPE: (.+)/);
+      const conflictType = conflictMatch ? conflictMatch[1].trim() : 'general';
+
+      return { isExAction, clientCanFix, conflictType };
+    } catch (error) {
+      logger.error('Error analyzing conflict:', error);
+      return { isExAction: true, clientCanFix: true, conflictType: 'general' };
+    }
+  }
+
   private async generateResponseOptions(message: string, type: 'informational' | 'decision_making'): Promise<[string, string, string]> {
+    // Analyze the conflict first
+    const analysis = await this.analyzeConflict(message);
+    
     let prompt: string;
 
     if (type === 'informational') {
       prompt = `
-Generate 3 appropriate acknowledgment responses to this informational co-parenting message.
-Responses should be:
-- Brief and professional
-- Acknowledge the information
-- Maintain neutral, cooperative tone
-- Suitable for co-parent communication
+Generate 3 DISTINCTLY DIFFERENT response approaches to this informational co-parenting message. Based on research in co-parenting with difficult personalities and conflict resolution, create responses using the BIFF method (Brief, Informative, Friendly, Firm).
+
+Each response must use a completely different strategy:
+
+OPTION 1 - ACKNOWLEDGMENT APPROACH:
+- Brief acknowledgment without emotional engagement
+- Gray rock technique if dealing with high-conflict personality
+- Professional and neutral
+
+OPTION 2 - STRUCTURED APPROACH:
+- Create systems, schedules, or documentation
+- Business-like boundaries
+- Focus on processes and organization
+
+OPTION 3 - CHILD-FOCUSED REDIRECT:
+- Redirect conversation to children's needs and well-being
+- Collaborative language about shared parenting goals
+- Solution-oriented for kids' benefit
 
 Message: "${message}"
 
-Generate exactly 3 response options:
+Generate exactly 3 DIFFERENT response strategies (keep each under 15 words):
 1.
 2.
 3.`;
     } else {
       prompt = `
-Generate 3 solution-focused responses to this co-parenting message that requires decision-making.
-Responses should:
-- Offer constructive solutions
-- Be collaborative, not confrontational  
-- Focus on the children's needs
-- Provide different approaches to the problem
+Generate 3 DISTINCTLY DIFFERENT solution approaches to this co-parenting decision-making message. Use conflict resolution research and strategies for handling difficult co-parents.
+
+Conflict Analysis:
+- Ex-partner's action: ${analysis.isExAction ? 'yes' : 'no'}
+- Client can influence: ${analysis.clientCanFix ? 'yes' : 'no'}
+- Conflict type: ${analysis.conflictType}
+
+Each response must offer a FUNDAMENTALLY DIFFERENT solution strategy:
+
+OPTION 1 - DIRECT ACTION APPROACH:
+- Client takes specific action to address the issue
+- Personal responsibility and immediate steps
+- What the client can directly control or change
+
+OPTION 2 - SYSTEM/STRUCTURE APPROACH:
+- Create new processes, schedules, or boundaries
+- Use tools, apps, or documentation
+- Establish frameworks to prevent future issues
+
+OPTION 3 - COMMUNICATION/BOUNDARY APPROACH:
+- Focus on information sharing and expectations
+- Professional boundaries and parallel parenting principles
+- Child-centered communication strategies
 
 Message: "${message}"
 
-Generate exactly 3 response options:
+Generate exactly 3 DIFFERENT solution strategies (keep each under 20 words):
 1.
 2.
 3.`;
@@ -227,15 +303,15 @@ Generate exactly 3 response options:
   private getDefaultResponses(type: 'informational' | 'decision_making'): [string, string, string] {
     if (type === 'informational') {
       return [
-        "Thank you for letting me know.",
-        "I understand.",
-        "Got it, thanks."
+        "Understood.",
+        "I'll make note of this for my records.",
+        "This is helpful for coordinating the children's schedule."
       ];
     } else {
       return [
-        "Let me think about this and get back to you.",
-        "I can help with that. What works best for you?",
-        "We can discuss this further to find a solution."
+        "I'll handle this on my end and update you.",
+        "Let's set up a system to track this going forward.",
+        "I'll focus on what works best for the children."
       ];
     }
   }
