@@ -72,6 +72,8 @@ export class SMSHelpers {
   static parseSetupMessage(messageText: string): {
     isSetupMessage: boolean;
     exPartnerPhone?: string;
+    userName?: string;
+    exPartnerName?: string;
     error?: string;
   } {
     const trimmed = messageText.trim();
@@ -104,10 +106,73 @@ export class SMSHelpers {
       };
     }
 
+    // Extract names if provided
+    const { userName, exPartnerName } = this.extractNamesFromSetupMessage(trimmed, phoneNumber);
+
     return {
       isSetupMessage: true,
-      exPartnerPhone: formattedPhone
+      exPartnerPhone: formattedPhone,
+      userName: userName || undefined,
+      exPartnerName: exPartnerName || undefined
     };
+  }
+
+  // Extract names from setup message (supports various formats)
+  static extractNamesFromSetupMessage(messageText: string, phoneNumber: string): {
+    userName?: string;
+    exPartnerName?: string;
+  } {
+    // Remove the phone number from the message to get the text parts
+    const textWithoutPhone = messageText.replace(phoneNumber, '').trim();
+    
+    // Handle various formats:
+    // Format 1: "Sarah +1234567890 John" or "Sarah John +1234567890"
+    // Format 2: "My name is Sarah, ex is John +1234567890" 
+    // Format 3: "I'm Sarah, my ex John +1234567890"
+    
+    // Clean up common connector words
+    const cleanText = textWithoutPhone
+      .replace(/my name is|i'm|i am|my ex|ex is|ex:|ex-partner:|ex partner:|their name is/gi, ' ')
+      .replace(/[,;]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    // If no text left after cleaning, no names provided
+    if (!cleanText) {
+      return {};
+    }
+    
+    // Split remaining words
+    const words = cleanText.split(/\s+/).filter(word => 
+      word.length > 1 && 
+      !/^[+\d\s\-\(\)]+$/.test(word) && // Not phone number remnants
+      !/^(and|is|the|my|ex|partner|name)$/i.test(word) // Not common connector words
+    );
+    
+    // Extract names based on number of words
+    let userName: string | undefined;
+    let exPartnerName: string | undefined;
+    
+    if (words.length === 1) {
+      // Only one name provided - assume it's the user's name
+      userName = this.capitalizeFirstLetter(words[0]);
+    } else if (words.length === 2) {
+      // Two names - first is user, second is ex-partner
+      userName = this.capitalizeFirstLetter(words[0]);
+      exPartnerName = this.capitalizeFirstLetter(words[1]);
+    } else if (words.length > 2) {
+      // Multiple words - take first and last as names
+      userName = this.capitalizeFirstLetter(words[0]);
+      exPartnerName = this.capitalizeFirstLetter(words[words.length - 1]);
+    }
+    
+    return { userName, exPartnerName };
+  }
+
+  // Helper method to capitalize first letter
+  static capitalizeFirstLetter(name: string): string {
+    if (!name) return name;
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
   }
 
   // Format message for SMS with proper line breaks and length limits

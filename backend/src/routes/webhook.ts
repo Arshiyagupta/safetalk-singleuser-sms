@@ -84,11 +84,11 @@ async function handleNewUser(phoneNumber: string, messageBody: string) {
     }
 
     // Check if message contains phone number for setup
-    const { isSetupMessage, exPartnerPhone, error } = SMSHelpers.parseSetupMessage(messageBody);
+    const { isSetupMessage, exPartnerPhone, userName, exPartnerName, error } = SMSHelpers.parseSetupMessage(messageBody);
     
     if (isSetupMessage && exPartnerPhone) {
       // Set up new user
-      const result = await userService.setupNewUser(phoneNumber, exPartnerPhone);
+      const result = await userService.setupNewUser(phoneNumber, exPartnerPhone, userName, exPartnerName);
       
       if (result.success) {
         logger.info(`New user setup completed: ${phoneNumber} <-> ${exPartnerPhone}`);

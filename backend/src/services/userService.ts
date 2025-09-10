@@ -65,7 +65,7 @@ class UserService {
 
   async createOrUpdateUser(request: SMSUserSetupRequest): Promise<User | null> {
     try {
-      const { userPhone, exPartnerPhone, twilioNumber } = request;
+      const { userPhone, exPartnerPhone, twilioNumber, userName, exPartnerName } = request;
       
       const formattedUserPhone = twilioService.formatPhoneNumber(userPhone);
       const formattedExPhone = twilioService.formatPhoneNumber(exPartnerPhone);
@@ -82,13 +82,19 @@ class UserService {
       
       if (existingUser) {
         // Update existing user
+        const updateData: any = {
+          ex_partner_phone: formattedExPhone,
+          twilio_number: formattedTwilioNumber,
+          is_active: true
+        };
+        
+        // Only update names if provided
+        if (userName) updateData.user_name = userName;
+        if (exPartnerName) updateData.ex_partner_name = exPartnerName;
+        
         const { data, error } = await this.supabase
           .from('users')
-          .update({
-            ex_partner_phone: formattedExPhone,
-            twilio_number: formattedTwilioNumber,
-            is_active: true
-          })
+          .update(updateData)
           .eq('id', existingUser.id)
           .select()
           .single();
@@ -98,14 +104,20 @@ class UserService {
         logger.info(`Updated existing user: ${formattedUserPhone}`);
       } else {
         // Create new user
+        const insertData: any = {
+          phone_number: formattedUserPhone,
+          ex_partner_phone: formattedExPhone,
+          twilio_number: formattedTwilioNumber,
+          is_active: true
+        };
+        
+        // Only include names if provided
+        if (userName) insertData.user_name = userName;
+        if (exPartnerName) insertData.ex_partner_name = exPartnerName;
+        
         const { data, error } = await this.supabase
           .from('users')
-          .insert({
-            phone_number: formattedUserPhone,
-            ex_partner_phone: formattedExPhone,
-            twilio_number: formattedTwilioNumber,
-            is_active: true
-          })
+          .insert(insertData)
           .select()
           .single();
 
@@ -198,7 +210,12 @@ class UserService {
     return true;
   }
 
-  async setupNewUser(userPhone: string, exPartnerPhone: string): Promise<{
+  async setupNewUser(
+    userPhone: string, 
+    exPartnerPhone: string, 
+    userName?: string,
+    exPartnerName?: string
+  ): Promise<{
     success: boolean;
     user?: User;
     error?: string;
@@ -217,7 +234,9 @@ class UserService {
       const user = await this.createOrUpdateUser({
         userPhone,
         exPartnerPhone,
-        twilioNumber
+        twilioNumber,
+        userName,
+        exPartnerName
       });
 
       if (!user) {
@@ -228,7 +247,7 @@ class UserService {
       }
 
       // Send setup confirmation
-      await twilioService.sendSetupConfirmation(userPhone, exPartnerPhone, twilioNumber);
+      await twilioService.sendSetupConfirmation(userPhone, exPartnerPhone, twilioNumber, userName, exPartnerName);
 
       return {
         success: true,
@@ -250,7 +269,9 @@ class UserService {
       exPartnerPhone: data.ex_partner_phone,
       twilioNumber: data.twilio_number,
       createdAt: data.created_at,
-      isActive: data.is_active
+      isActive: data.is_active,
+      userName: data.user_name || undefined,
+      exPartnerName: data.ex_partner_name || undefined
     };
   }
 }

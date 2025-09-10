@@ -77,6 +77,8 @@ export interface SMSUserSetupRequest {
   userPhone: string;
   exPartnerPhone: string;
   twilioNumber: string;
+  userName?: string;
+  exPartnerName?: string;
 }
 
 export interface SMSResponseParseResult {

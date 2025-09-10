@@ -271,7 +271,14 @@ Reply with 1, 2, 3, or write your own version.`;
   async sendWelcomeMessage(userPhone: string): Promise<string | null> {
     const welcomeText = `Welcome to SafeTalk! 
 
-To get started, reply with your ex-partner's phone number in this format: +1234567890
+To get started, reply with:
+YourName +1234567890 TheirName
+
+Examples:
+- "Sarah +1234567890 John"
+- "My name is Sarah, ex is John +1234567890"
+
+Or just send their phone number: +1234567890
 
 SafeTalk will filter all messages between you and help you communicate more effectively.`;
     
@@ -281,12 +288,17 @@ SafeTalk will filter all messages between you and help you communicate more effe
   async sendSetupConfirmation(
     userPhone: string, 
     exPartnerPhone: string, 
-    twilioNumber: string
+    twilioNumber: string,
+    userName?: string,
+    exPartnerName?: string
   ): Promise<string | null> {
+    const userDisplay = userName ? `${userName} (${userPhone})` : userPhone;
+    const exDisplay = exPartnerName ? `${exPartnerName} (${exPartnerPhone})` : exPartnerPhone;
+    
     const confirmationText = `SafeTalk Setup Complete! ✓
 
-Your number: ${userPhone}
-Ex-partner's number: ${exPartnerPhone}
+Your info: ${userDisplay}
+Ex-partner: ${exDisplay}
 SafeTalk service: ${twilioNumber}
 
 Both of you should now text ${twilioNumber} to communicate through SafeTalk. All messages will be filtered for constructive co-parenting communication.`;
