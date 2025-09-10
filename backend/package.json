@@ -26,17 +26,17 @@
     "joi": "^17.9.2",
     "winston": "^3.10.0",
     "dotenv": "^16.3.1",
-    "uuid": "^9.0.0"
-  },
-  "devDependencies": {
+    "uuid": "^9.0.0",
     "@types/express": "^4.17.17",
     "@types/cors": "^2.8.13",
     "@types/morgan": "^1.9.4",
     "@types/compression": "^1.7.2",
     "@types/node": "^20.4.5",
     "@types/uuid": "^9.0.2",
+    "typescript": "^5.1.6"
+  },
+  "devDependencies": {
     "@types/jest": "^29.5.3",
-    "typescript": "^5.1.6",
     "ts-node-dev": "^2.0.0",
     "eslint": "^8.45.0",
     "@typescript-eslint/eslint-plugin": "^6.2.0",
