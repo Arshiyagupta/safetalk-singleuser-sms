@@ -5,6 +5,7 @@ import userService from '../services/userService';
 import aiService from '../services/aiService';
 import SMSHelpers from '../services/smsHelpers';
 import { createClient } from '@supabase/supabase-js';
+import { User } from '../shared/types';
 
 const router = Router();
 
@@ -109,7 +110,7 @@ async function handleNewUser(phoneNumber: string, messageBody: string) {
 }
 
 // Handle response from user (replying to filtered message)
-async function handleUserResponse(user: any, responseBody: string, _messageSid: string) {
+async function handleUserResponse(user: User, responseBody: string, _messageSid: string) {
   try {
     // Check for special commands first
     const { isCommand, command } = SMSHelpers.parseSpecialCommands(responseBody);
@@ -185,7 +186,7 @@ async function handleUserResponse(user: any, responseBody: string, _messageSid: 
 }
 
 // Handle client initiating a new message to their ex
-async function handleClientInitiatedMessage(user: any, messageBody: string, messageSid: string) {
+async function handleClientInitiatedMessage(user: User, messageBody: string, _messageSid: string) {
   try {
     // Check for special commands first
     const { isCommand, command } = SMSHelpers.parseSpecialCommands(messageBody);
@@ -206,7 +207,7 @@ async function handleClientInitiatedMessage(user: any, messageBody: string, mess
     const aiResult = await aiService.generateOutgoingMessageOptions(messageBody);
     
     // Save the outgoing message intent
-    await saveOutgoingMessageIntent(user.id, messageBody, aiResult, messageSid);
+    await saveOutgoingMessageIntent(user.id, messageBody, aiResult, _messageSid);
     
     // Send 3 professional options to client
     await twilioService.sendOutgoingMessageOptionsToClient(
@@ -229,12 +230,12 @@ async function handleClientInitiatedMessage(user: any, messageBody: string, mess
 }
 
 // Handle message from ex-partner (needs filtering)
-async function handleExPartnerMessage(user: any, fromPhone: string, messageBody: string, messageSid: string) {
+async function handleExPartnerMessage(user: User, _fromPhone: string, messageBody: string, messageSid: string) {
   try {
     // Validate message content
     const validation = SMSHelpers.validateMessageContent(messageBody);
     if (!validation.isValid) {
-      logger.warn(`Invalid message content from ${fromPhone}: ${validation.error}`);
+      logger.warn(`Invalid message content from ${_fromPhone}: ${validation.error}`);
       return; // Don't forward invalid messages
     }
 
@@ -242,7 +243,7 @@ async function handleExPartnerMessage(user: any, fromPhone: string, messageBody:
     const aiResult = await aiService.processMessage(messageBody);
     
     // Save original message
-    await saveIncomingMessage(user.id, fromPhone, messageBody, aiResult, messageSid);
+    await saveIncomingMessage(user.id, _fromPhone, messageBody, aiResult, messageSid);
     
     // Send filtered message with response options to user
     await twilioService.sendFilteredMessageToUser(
@@ -258,7 +259,7 @@ async function handleExPartnerMessage(user: any, fromPhone: string, messageBody:
     // Save response options for later use
     await saveResponseOptions(user.id, aiResult.responseOptions);
     
-    logger.info(`Filtered message sent to ${user.phoneNumber} from ${fromPhone}`);
+    logger.info(`Filtered message sent to ${user.phoneNumber} from ${_fromPhone}`);
     
   } catch (error) {
     logger.error('Error handling ex-partner message:', error);
@@ -267,7 +268,7 @@ async function handleExPartnerMessage(user: any, fromPhone: string, messageBody:
 }
 
 // Handle special commands (help, status, etc.)
-async function handleSpecialCommand(user: any, command: string) {
+async function handleSpecialCommand(user: User, command: string) {
   try {
     switch (command) {
       case 'help':
@@ -436,7 +437,7 @@ async function hasPendingIncomingOptions(userId: string): Promise<boolean> {
       .single();
 
     // User has pending options if there are response options that haven't been used yet
-    return !!(responseOptions && !responseOptions.selected_response && !responseOptions.custom_response);
+    return responseOptions ? (!responseOptions.selected_response && !responseOptions.custom_response) : false;
   } catch (error) {
     logger.error('Error checking pending incoming options:', error);
     return false;
@@ -466,7 +467,7 @@ async function hasPendingOutgoingOptions(userId: string): Promise<boolean> {
       .eq('message_id', recentMessage.id)
       .single();
 
-    return !!(responseOptions && !responseOptions.selected_response && !responseOptions.custom_response);
+    return responseOptions ? (!responseOptions.selected_response && !responseOptions.custom_response) : false;
   } catch (error) {
     logger.error('Error checking pending outgoing options:', error);
     return false;

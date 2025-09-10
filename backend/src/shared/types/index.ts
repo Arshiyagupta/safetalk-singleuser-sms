@@ -5,6 +5,8 @@ export interface User {
   twilioNumber: string;
   createdAt: string;
   isActive: boolean;
+  userName?: string;
+  exPartnerName?: string;
 }
 
 export interface Message {
@@ -38,6 +40,8 @@ export interface AIProcessingResult {
   responseOptions: [string, string, string];
   confidence: number;
   reasoning?: string;
+  context?: string | null;
+  messageOptions?: [string, string, string];
 }
 
 export interface TwilioWebhookPayload {

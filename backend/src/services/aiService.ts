@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { logger } from '../utils/logger';
-import { AIProcessingResult } from '../types';
+import { AIProcessingResult } from '../shared/types';
 
 class AIService {
   private openai: OpenAI | null = null;
