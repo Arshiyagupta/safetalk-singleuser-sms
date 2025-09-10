@@ -130,10 +130,11 @@ export class SMSHelpers {
     // Format 2: "My name is Sarah, ex is John +1234567890" 
     // Format 3: "I'm Sarah, my ex John +1234567890"
     
-    // Clean up common connector words
+    // Clean up common connector words and template labels
     const cleanText = textWithoutPhone
       .replace(/my name is|i'm|i am|my ex|ex is|ex:|ex-partner:|ex partner:|their name is/gi, ' ')
-      .replace(/[,;]/g, ' ')
+      .replace(/your name:|your co-parent's name:|your co-parent's number:|name:|co-parent name:|co-parent's name:|number:/gi, ' ')
+      .replace(/[,;:\n\r]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
     
@@ -146,7 +147,7 @@ export class SMSHelpers {
     const words = cleanText.split(/\s+/).filter(word => 
       word.length > 1 && 
       !/^[+\d\s\-\(\)]+$/.test(word) && // Not phone number remnants
-      !/^(and|is|the|my|ex|partner|name)$/i.test(word) // Not common connector words
+      !/^(and|is|the|my|ex|partner|name|your|co-parent|co|parent|number)$/i.test(word) // Not common connector words
     );
     
     // Extract names based on number of words

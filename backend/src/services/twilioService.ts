@@ -269,18 +269,13 @@ Reply with 1, 2, 3, or write your own version.`;
   }
 
   async sendWelcomeMessage(userPhone: string): Promise<string | null> {
-    const welcomeText = `Welcome to SafeTalk! 
+    const welcomeText = `✨ Welcome to SafeTalk! ✨
 
-To get started, reply with:
-YourName +1234567890 TheirName
+To get started, please share the following details:
 
-Examples:
-- "Sarah +1234567890 John"
-- "My name is Sarah, ex is John +1234567890"
-
-Or just send their phone number: +1234567890
-
-SafeTalk will filter all messages between you and help you communicate more effectively.`;
+Your Name:
+Your Co-parent's Name:
+Your Co-parent's Number:`;
     
     return this.sendSMS(userPhone, welcomeText);
   }
