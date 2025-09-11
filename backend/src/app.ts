@@ -4,14 +4,16 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
+import path from 'path';
 import { createServer } from 'http';
+
+// Load environment variables FIRST before any other imports that might use them
+dotenv.config();
 
 import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 import webhookRoutes from './routes/webhook';
-
-// Load environment variables
-dotenv.config();
+import subscriptionRoutes from './routes/subscription';
 
 const app = express();
 const server = createServer(app);
@@ -22,9 +24,11 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com", "https://cdn.tailwindcss.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://cdn.tailwindcss.com", "https://js.stripe.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https://api.stripe.com"],
     },
   },
 }));
@@ -44,6 +48,9 @@ app.use('/webhook', express.raw({ type: 'application/x-www-form-urlencoded' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
+// Serve static files from public directory
+app.use(express.static(path.join(__dirname, 'public')));
+
 // Health check endpoint
 app.get('/health', (_req, res) => {
   res.json({ 
@@ -54,6 +61,14 @@ app.get('/health', (_req, res) => {
     environment: process.env.NODE_ENV || 'development'
   });
 });
+
+// Serve the main website
+app.get('/', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// API routes
+app.use('/api', subscriptionRoutes);
 
 // SMS webhook routes (only route we need for SMS-only service)
 app.use('/webhook', webhookRoutes);

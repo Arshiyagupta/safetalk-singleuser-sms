@@ -7,6 +7,12 @@ export interface User {
   isActive: boolean;
   userName?: string;
   exPartnerName?: string;
+  // Subscription fields
+  stripeCustomerId?: string;
+  subscriptionId?: string;
+  subscriptionStatus?: 'active' | 'canceled' | 'past_due';
+  subscriptionStartedAt?: string;
+  hasActivatedService?: boolean; // Both parties texted START
 }
 
 export interface Message {

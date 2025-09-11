@@ -44,8 +44,14 @@ router.post('/sms', async (req: Request, res: Response) => {
     const { user, isUserPhone } = await userService.findUserByPhoneNumber(From);
     
     if (!user) {
-      // New user - send welcome message and setup instructions
+      // New user - check if they need subscription or send welcome
       await handleNewUser(From, Body);
+      return res.status(200).send('OK');
+    }
+
+    // Check subscription status before processing any messages
+    if (!isValidSubscription(user)) {
+      await handleSubscriptionRequired(From, Body);
       return res.status(200).send('OK');
     }
 
@@ -83,25 +89,42 @@ async function handleNewUser(phoneNumber: string, messageBody: string) {
       return;
     }
 
-    // Check if message contains phone number for setup
+    // New users must subscribe first - redirect to website
+    const welcomeMessage = `👋 Welcome to SafeTalk!
+
+SafeTalk provides professional co-parenting coordination through AI-filtered SMS messaging.
+
+To get started:
+1. Subscribe at: https://safetalk-coparents.vercel.com
+2. Both co-parents text "START" to activate service
+3. Begin communicating through SafeTalk for better co-parenting
+
+💰 Only $50/month for unlimited professional messaging support
+
+Questions? Reply HELP`;
+
+    await twilioService.sendSMS(phoneNumber, welcomeMessage);
+
+    // Legacy setup check for existing flow compatibility
     const { isSetupMessage, exPartnerPhone, userName, exPartnerName, error } = SMSHelpers.parseSetupMessage(messageBody);
     
     if (isSetupMessage && exPartnerPhone) {
-      // Set up new user
-      const result = await userService.setupNewUser(phoneNumber, exPartnerPhone, userName, exPartnerName);
-      
-      if (result.success) {
-        logger.info(`New user setup completed: ${phoneNumber} <-> ${exPartnerPhone}`);
-      } else {
-        await twilioService.sendErrorMessage(phoneNumber, result.error || 'Setup failed');
-      }
-    } else {
-      // Send welcome message
-      await twilioService.sendWelcomeMessage(phoneNumber);
-      
-      if (error) {
-        await twilioService.sendErrorMessage(phoneNumber, error);
-      }
+      const legacyMessage = `Setup detected, but SafeTalk now requires subscription first.
+
+Please visit https://safetalk-coparents.vercel.com to subscribe and set up your service properly.
+
+Your information:
+• Your name: ${userName || 'Not provided'}
+• Co-parent: ${exPartnerName || 'Not provided'} (${exPartnerPhone})
+
+After subscribing, both parties text "START" to activate.`;
+
+      await twilioService.sendSMS(phoneNumber, legacyMessage);
+      return;
+    }
+    
+    if (error) {
+      await twilioService.sendErrorMessage(phoneNumber, error);
     }
   } catch (error) {
     logger.error('Error handling new user:', error);
@@ -575,6 +598,102 @@ async function saveOutgoingMessageOptions(userId: string, options: [string, stri
     }
   } catch (error) {
     logger.error('Error saving outgoing message options:', error);
+  }
+}
+
+// Subscription validation functions
+function isValidSubscription(user: User): boolean {
+  // For development/testing - if no subscription fields, allow access
+  if (!user.subscriptionStatus) {
+    logger.info('No subscription status found, allowing access for development');
+    return true;
+  }
+  
+  // Check if subscription is active
+  if (user.subscriptionStatus !== 'active') {
+    logger.info(`User ${user.phoneNumber} has inactive subscription: ${user.subscriptionStatus}`);
+    return false;
+  }
+  
+  // Check if service has been activated (both parties texted START)
+  if (!user.hasActivatedService) {
+    logger.info(`User ${user.phoneNumber} has not activated service yet`);
+    return false;
+  }
+  
+  return true;
+}
+
+async function handleSubscriptionRequired(phoneNumber: string, messageBody: string) {
+  try {
+    // Check for special commands first
+    const { isCommand, command } = SMSHelpers.parseSpecialCommands(messageBody);
+    
+    if (isCommand && command === 'help') {
+      await twilioService.sendSMS(phoneNumber, SMSHelpers.getHelpMessage());
+      return;
+    }
+    
+    if (isCommand && command === 'start') {
+      // User trying to activate - check if they have a subscription
+      const { user } = await userService.findUserByPhoneNumber(phoneNumber);
+      
+      if (user && user.subscriptionStatus === 'active' && !user.hasActivatedService) {
+        // Mark as activated and continue
+        await markServiceActivated(user.id, phoneNumber);
+        
+        const activationMessage = `✅ SafeTalk activated for ${phoneNumber}!
+
+Your co-parenting communication service is now active. All messages will be filtered through AI to promote respectful dialogue.
+
+• Messages from your co-parent will be filtered and you'll get response options
+• Your messages will be reviewed before sending
+• Professional mediation available 24/7
+
+Start communicating through this SafeTalk number for better co-parenting! 👨‍👩‍👧‍👦`;
+
+        await twilioService.sendSMS(phoneNumber, activationMessage);
+        return;
+      }
+    }
+    
+    // Send subscription required message
+    const subscriptionMessage = `🔒 SafeTalk Subscription Required
+
+To use SafeTalk's professional co-parenting coordination service, please visit:
+
+https://safetalk-coparents.vercel.com
+
+• Monthly subscription: $50
+• Unlimited AI-filtered messaging  
+• 24/7 conflict resolution support
+• Professional response suggestions
+
+After subscribing, both co-parents must text "START" to activate the service.
+
+Questions? Reply HELP`;
+
+    await twilioService.sendSMS(phoneNumber, subscriptionMessage);
+    
+  } catch (error) {
+    logger.error('Error handling subscription required:', error);
+  }
+}
+
+async function markServiceActivated(userId: string, phoneNumber: string) {
+  try {
+    const { error } = await supabase
+      .from('users')
+      .update({ has_activated_service: true })
+      .eq('id', userId);
+      
+    if (error) {
+      logger.error('Error marking service as activated:', error);
+    } else {
+      logger.info(`Service activated for user ${phoneNumber}`);
+    }
+  } catch (error) {
+    logger.error('Error updating activation status:', error);
   }
 }
 

@@ -10,10 +10,13 @@ class TwilioService {
     const authToken = process.env.TWILIO_AUTH_TOKEN;
     this.phoneNumber = process.env.TWILIO_PHONE_NUMBER || '';
 
-    if (!accountSid || !authToken || !this.phoneNumber) {
-      logger.warn('Twilio configuration missing. Service will use mock mode.');
+    if (!accountSid || !authToken || !this.phoneNumber || 
+        accountSid.includes('your_twilio') || authToken.includes('your_twilio') || 
+        this.phoneNumber.includes('your_twilio')) {
+      logger.warn('Twilio configuration missing or using placeholders. Service will use mock mode.');
       // Create a mock client for development
       this.client = {} as twilio.Twilio;
+      this.phoneNumber = '+15551234567'; // Mock phone number for development
     } else {
       this.client = twilio(accountSid, authToken);
       logger.info('Twilio client initialized');

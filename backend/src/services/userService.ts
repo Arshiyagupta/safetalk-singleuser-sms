@@ -271,7 +271,13 @@ class UserService {
       createdAt: data.created_at,
       isActive: data.is_active,
       userName: data.user_name || undefined,
-      exPartnerName: data.ex_partner_name || undefined
+      exPartnerName: data.ex_partner_name || undefined,
+      // Subscription fields
+      stripeCustomerId: data.stripe_customer_id || undefined,
+      subscriptionId: data.subscription_id || undefined,
+      subscriptionStatus: data.subscription_status || undefined,
+      subscriptionStartedAt: data.subscription_started_at || undefined,
+      hasActivatedService: data.has_activated_service || false
     };
   }
 }
