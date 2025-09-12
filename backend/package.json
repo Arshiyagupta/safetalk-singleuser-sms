@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node dist/app.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
-    "build": "tsc && cp -r src/public dist/",
-    "postbuild": "mkdir -p dist/public && cp -r src/public/* dist/public/",
+    "build": "tsc",
     "test": "jest",
     "lint": "eslint src/**/*.ts",
     "type-check": "tsc --noEmit"

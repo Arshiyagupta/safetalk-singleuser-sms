@@ -4,7 +4,6 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
-import path from 'path';
 import { createServer } from 'http';
 
 // Load environment variables FIRST before any other imports that might use them
@@ -35,7 +34,7 @@ app.use(helmet({
 
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? ['https://safetalk-sms.com'] // Replace with your actual domain
+    ? ['https://safetalk-coparents.vercel.app', 'https://safetalk-sms.com'] // Frontend domains
     : true, // Allow all origins in development
   credentials: true,
 }));
@@ -48,10 +47,7 @@ app.use('/webhook', express.raw({ type: 'application/x-www-form-urlencoded' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from public directory
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Health check endpoint
+// Health check endpoint for SMS service
 app.get('/health', (_req, res) => {
   res.json({ 
     status: 'healthy',
@@ -62,9 +58,17 @@ app.get('/health', (_req, res) => {
   });
 });
 
-// Serve the main website
+// Root endpoint for service info
 app.get('/', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  res.json({
+    service: 'SafeTalk SMS Processing Service',
+    status: 'active',
+    endpoints: {
+      health: '/health',
+      webhook: '/webhook/sms',
+      subscription: '/api/subscribe'
+    }
+  });
 });
 
 // API routes
